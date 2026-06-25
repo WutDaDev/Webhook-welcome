@@ -1,8 +1,10 @@
-const { Client, MessageActionRow, MessageButton, MessageSelectMenu, MessageEmbed } = require('discord.js-selfbot-v13');
+const Discord = require('discord.js-selfbot-v13');
+const { Client, MessageEmbed, MessageActionRow, MessageButton, MessageSelectMenu } = Discord;
+
 const client = new Client({
     checkUpdate: false,
     patchVoice: true,
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/126.0.0.0'
 });
 
 const TOKEN = process.env.TOKEN;
@@ -246,10 +248,10 @@ function buildEmbed(memberDisplayName) {
             url: WIDEKITA_URL
         })
         .setDescription(
-            '**' + memberDisplayName + '**  vừa đẩy cửa bước vào...\n\n' +
+            '**' + memberDisplayName + '** vừa đẩy cửa bước vào...\n\n' +
             '_' + greeting + '_\n\n' +
             '────────────────────────────\n' +
-            '**Bocchi Corner**  - tâm sự từ góc tối:\n' +
+            '**Bocchi Corner** - tâm sự từ góc tối:\n' +
             '_' + joke + '_\n' +
             '────────────────────────────\n\n' +
             'Chọn dịch vụ bên dưới hoặc dùng Select Menu để gọi món ngay!'
@@ -276,7 +278,7 @@ async function sendWebhook(memberDisplayName) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 username: 'Bocchi Waiter - Starry',
-                avatarURL: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif',
+                avatar_url: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif',
                 embeds: [embed],
                 components: components
             })
@@ -311,10 +313,8 @@ client.on('ready', () => {
    SỰ KIỆN MESSAGE CREATE
    =================================================================== */
 client.on('messageCreate', async (message) => {
-    // Tránh tương tác với tin nhắn của chính bot
     if (message.author.id === client.user.id) return;
 
-    // 1. Ping target: reply "yes" khi owner ping 411916947773587456
     if (
         message.author.id === OWNER_ID &&
         (message.content.includes('<' + '@' + PING_TARGET_ID + '>') || message.content.includes('<@!' + PING_TARGET_ID + '>'))
@@ -327,13 +327,10 @@ client.on('messageCreate', async (message) => {
         return;
     }
 
-    // 2. Lệnh "ahem" - rename voice channel hiện tại
     if (message.content.toLowerCase() === 'ahem' && message.author.id === OWNER_ID) {
         try {
             await message.delete();
-        } catch (e) {
-            // Không quan trọng, có thể không xóa được
-        }
+        } catch (e) {}
 
         const vc = message.member?.voice?.channel;
         if (vc) {
@@ -354,7 +351,6 @@ client.on('messageCreate', async (message) => {
    SỰ KIỆN VOICE STATE UPDATE
    =================================================================== */
 client.on('voiceStateUpdate', async (oldState, newState) => {
-    // Auto rename khi channel bị đổi thành tên target
     const vc = newState.channel || oldState.channel;
     if (vc && vc.name === TARGET_CHANNEL_NAME) {
         try {
@@ -365,14 +361,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         }
     }
 
-    // Gửi webhook khi có người vào voice (không phải bot)
     if (!oldState.channelId && newState.channelId && !newState.member.user.bot) {
         await sendWebhook(newState.member.displayName);
     }
 });
 
 /* ===================================================================
-   SỰ KIỆN INTERACTION CREATE — Select Menu
+   SỰ KIỆN INTERACTION CREATE
    =================================================================== */
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isSelectMenu() || interaction.customId !== 'starry_menu') return;
@@ -424,7 +419,4 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-/* ===================================================================
-   ĐĂNG NHẬP
-   =================================================================== */
 client.login(TOKEN);
