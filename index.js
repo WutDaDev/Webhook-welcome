@@ -151,12 +151,13 @@ async function notifyOwner(content) {
 }
 
 /* ===================================================================
-   BUILD COMPONENTS
+   BUILD COMPONENTS (Đã fix lỗi constructor)
    =================================================================== */
 function buildComponents() {
-    const selectRow = new MessageActionRow()
+    // Sử dụng trực tiếp class từ thư viện thông qua Discord object đã import
+    const selectRow = new Discord.MessageActionRow()
         .addComponents(
-            new MessageSelectMenu()
+            new Discord.MessageSelectMenu() // Truy cập thông qua Discord object
                 .setCustomId('starry_menu')
                 .setPlaceholder('Chọn dịch vụ bên dưới...')
                 .setMinValues(1)
@@ -185,48 +186,21 @@ function buildComponents() {
                 ])
         );
 
-    const buttonRow1 = new MessageActionRow()
+    const buttonRow1 = new Discord.MessageActionRow()
         .addComponents(
-            new MessageButton()
-                .setLabel('Order')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL),
-            new MessageButton()
-                .setLabel('Kita Meow')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL),
-            new MessageButton()
-                .setLabel('Menu Nhạc')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL),
-            new MessageButton()
-                .setLabel('Special')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL),
-            new MessageButton()
-                .setLabel('Fanpage')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL)
+            new Discord.MessageButton().setLabel('Order').setStyle('LINK').setURL(WIDEKITA_URL),
+            new Discord.MessageButton().setLabel('Kita Meow').setStyle('LINK').setURL(WIDEKITA_URL),
+            new Discord.MessageButton().setLabel('Menu Nhạc').setStyle('LINK').setURL(WIDEKITA_URL),
+            new Discord.MessageButton().setLabel('Special').setStyle('LINK').setURL(WIDEKITA_URL),
+            new Discord.MessageButton().setLabel('Fanpage').setStyle('LINK').setURL(WIDEKITA_URL)
         );
 
-    const buttonRow2 = new MessageActionRow()
+    const buttonRow2 = new Discord.MessageActionRow()
         .addComponents(
-            new MessageButton()
-                .setLabel('Instagram Kita')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL),
-            new MessageButton()
-                .setLabel('Kessoku Fanclub')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL),
-            new MessageButton()
-                .setLabel('Chat với Bocchi')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL),
-            new MessageButton()
-                .setLabel('Bocchi Corner')
-                .setStyle('LINK')
-                .setURL(WIDEKITA_URL)
+            new Discord.MessageButton().setLabel('Instagram Kita').setStyle('LINK').setURL(WIDEKITA_URL),
+            new Discord.MessageButton().setLabel('Kessoku Fanclub').setStyle('LINK').setURL(WIDEKITA_URL),
+            new Discord.MessageButton().setLabel('Chat với Bocchi').setStyle('LINK').setURL(WIDEKITA_URL),
+            new Discord.MessageButton().setLabel('Bocchi Corner').setStyle('LINK').setURL(WIDEKITA_URL)
         );
 
     return [selectRow, buttonRow1, buttonRow2];
