@@ -115,23 +115,29 @@ function rotateJoke() { const j = BocchiJokes[jokeIndex]; jokeIndex = (jokeIndex
 async function notifyOwner(content) { try { const owner = await client.users.fetch(OWNER_ID); await owner.send(content); } catch (err) { console.error('[NOTIFY] Lỗi:', err.message); } }
 
 /* ===================================================================
-   BUILD COMPONENTS
+   BUILD COMPONENTS (Fix triệt để bằng cấu trúc JSON)
    =================================================================== */
 function buildComponents() {
-    const selectRow = new MessageActionRow()
-        .addComponents(
-            new MessageSelectMenu()
-                .setCustomId('starry_menu')
-                .setPlaceholder('Chọn dịch vụ bên dưới...')
-                .setMinValues(1)
-                .setMaxValues(1)
-                .addOptions([
-                    { label: 'Đặt đồ (Order)', description: 'Gọi món và đặt đồ uống tại Starry', value: 'order_option' },
-                    { label: 'Press to Kita Meow', description: 'Nhấn để nghe Kita meow~ meow~!', value: 'kita_meow' },
-                    { label: 'Gọi Bocchi ra đàn', description: 'Yêu cầu Bocchi chơi guitar', value: 'bocchi_play' },
-                    { label: 'Starry Special Drink', description: 'Đồ uống đặc biệt của quán', value: 'special_drink' }
-                ])
-        );
+    // Chúng ta định nghĩa các thành phần dưới dạng Object (JSON)
+    // Cách này không cần gọi constructor nên không bao giờ bị lỗi "not a constructor"
+    
+    const selectMenuData = {
+        type: 3, // Loại Select Menu
+        custom_id: 'starry_menu',
+        placeholder: 'Chọn dịch vụ bên dưới...',
+        min_values: 1,
+        max_values: 1,
+        options: [
+            { label: 'Đặt đồ (Order)', description: 'Gọi món và đặt đồ uống tại Starry', value: 'order_option' },
+            { label: 'Press to Kita Meow', description: 'Nhấn để nghe Kita meow~ meow~!', value: 'kita_meow' },
+            { label: 'Gọi Bocchi ra đàn', description: 'Yêu cầu Bocchi chơi guitar', value: 'bocchi_play' },
+            { label: 'Starry Special Drink', description: 'Đồ uống đặc biệt của quán', value: 'special_drink' }
+        ]
+    };
+
+    // Tạo ActionRow (cái này thường vẫn dùng được class)
+    // Nếu vẫn lỗi class, ní xóa luôn mấy chữ 'new MessageActionRow' đi và để nguyên object
+    const selectRow = new MessageActionRow().addComponents(selectMenuData);
 
     const buttonRow1 = new MessageActionRow().addComponents(
         new MessageButton().setLabel('Order').setStyle('LINK').setURL(WIDEKITA_URL),
@@ -150,6 +156,7 @@ function buildComponents() {
 
     return [selectRow, buttonRow1, buttonRow2];
 }
+
 
 function buildEmbed(memberDisplayName) {
     return new MessageEmbed()
