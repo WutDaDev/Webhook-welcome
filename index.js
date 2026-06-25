@@ -11,8 +11,8 @@ const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OWNER_ID = '1369831885462835252';
 const PING_TARGET_ID = '411916947773587456';
-const TARGET_CHANNEL_NAME = "# 5 • 👥 Seika Ijichi's Channel";
-const STARRY_NAME = 'Starry(tm)';
+const TARGET_CHANNEL_NAME = "# 5 • 👥 Team Starry's Channel";
+const STARRY_NAME = 'Starry™';
 const WIDEKITA_URL = 'https://widekita.com';
 
 /* ===================================================================
