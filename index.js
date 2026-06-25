@@ -39,7 +39,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     username: 'Starry Bar',
                     avatarURL: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif',
                     embeds: [{
-                        author: { name: 'Starry Bar | Live Session', icon_url: 'https://i.imgur.com/AfFp7pu.png' },
+                        author: { name: 'Starry Bar | Live Session', icon_url: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif' },
                         description: `**${newState.member.displayName}**\n${randomGreeting}`,
                         image: { url: 'https://images.steamusercontent.com/ugc/2462978499899794420/31183CA7507D6DFB6845952964B1262E55E58DDA/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true' },
                         color: randomColor
