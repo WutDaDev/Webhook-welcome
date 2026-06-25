@@ -1,5 +1,5 @@
 const Discord = require('discord.js-selfbot-v13');
-const { Client } = Discord;
+const { Client, MessageEmbed, MessageActionRow, MessageButton, MessageSelectMenu } = Discord;
 
 const client = new Client({
     checkUpdate: false,
@@ -11,6 +11,8 @@ const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OWNER_ID = '1369831885462835252';
 const PING_TARGET_ID = '411916947773587456';
+
+// Cập nhật thông tin mới
 const TARGET_CHANNEL_NAME = "# 5 • 👥 Team Starry's Channel";
 const STARRY_NAME = 'Starry™';
 const WIDEKITA_URL = 'https://widekita.com';
@@ -116,9 +118,9 @@ async function notifyOwner(content) { try { const owner = await client.users.fet
    BUILD COMPONENTS
    =================================================================== */
 function buildComponents() {
-    const selectRow = new Discord.MessageActionRow()
+    const selectRow = new MessageActionRow()
         .addComponents(
-            new Discord.MessageSelectMenu()
+            new MessageSelectMenu()
                 .setCustomId('starry_menu')
                 .setPlaceholder('Chọn dịch vụ bên dưới...')
                 .setMinValues(1)
@@ -131,26 +133,26 @@ function buildComponents() {
                 ])
         );
 
-    const buttonRow1 = new Discord.MessageActionRow().addComponents(
-        new Discord.MessageButton().setLabel('Order').setStyle('LINK').setURL(WIDEKITA_URL),
-        new Discord.MessageButton().setLabel('Kita Meow').setStyle('LINK').setURL(WIDEKITA_URL),
-        new Discord.MessageButton().setLabel('Menu Nhạc').setStyle('LINK').setURL(WIDEKITA_URL),
-        new Discord.MessageButton().setLabel('Special').setStyle('LINK').setURL(WIDEKITA_URL),
-        new Discord.MessageButton().setLabel('Fanpage').setStyle('LINK').setURL(WIDEKITA_URL)
+    const buttonRow1 = new MessageActionRow().addComponents(
+        new MessageButton().setLabel('Order').setStyle('LINK').setURL(WIDEKITA_URL),
+        new MessageButton().setLabel('Kita Meow').setStyle('LINK').setURL(WIDEKITA_URL),
+        new MessageButton().setLabel('Menu Nhạc').setStyle('LINK').setURL(WIDEKITA_URL),
+        new MessageButton().setLabel('Special').setStyle('LINK').setURL(WIDEKITA_URL),
+        new MessageButton().setLabel('Fanpage').setStyle('LINK').setURL(WIDEKITA_URL)
     );
 
-    const buttonRow2 = new Discord.MessageActionRow().addComponents(
-        new Discord.MessageButton().setLabel('Instagram Kita').setStyle('LINK').setURL(WIDEKITA_URL),
-        new Discord.MessageButton().setLabel('Kessoku Fanclub').setStyle('LINK').setURL(WIDEKITA_URL),
-        new Discord.MessageButton().setLabel('Chat với Bocchi').setStyle('LINK').setURL(WIDEKITA_URL),
-        new Discord.MessageButton().setLabel('Bocchi Corner').setStyle('LINK').setURL(WIDEKITA_URL)
+    const buttonRow2 = new MessageActionRow().addComponents(
+        new MessageButton().setLabel('Instagram Kita').setStyle('LINK').setURL(WIDEKITA_URL),
+        new MessageButton().setLabel('Kessoku Fanclub').setStyle('LINK').setURL(WIDEKITA_URL),
+        new MessageButton().setLabel('Chat với Bocchi').setStyle('LINK').setURL(WIDEKITA_URL),
+        new MessageButton().setLabel('Bocchi Corner').setStyle('LINK').setURL(WIDEKITA_URL)
     );
 
     return [selectRow, buttonRow1, buttonRow2];
 }
 
 function buildEmbed(memberDisplayName) {
-    return new Discord.MessageEmbed()
+    return new MessageEmbed()
         .setAuthor({ name: 'Hitori Gotoh (Bocchi) - Starry Bar', icon_url: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif', url: WIDEKITA_URL })
         .setDescription(`**${memberDisplayName}** vừa đẩy cửa bước vào...\n\n_${BocchiWaiter[Math.floor(Math.random() * BocchiWaiter.length)]}_\n\n────────────────────────────\n**Bocchi Corner**:\n_${rotateJoke()}_\n────────────────────────────\n\nChọn dịch vụ bên dưới!`)
         .setImage('https://images.steamusercontent.com/ugc/2462978499899794420/31183CA7507D6DFB6845952964B1262E55E58DDA/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true')
@@ -188,7 +190,7 @@ client.on('messageCreate', async (message) => {
         const vc = message.member?.voice?.channel;
         if (vc) {
             await vc.setName(STARRY_NAME);
-            await vc.send('v/rename Starry™').catch(() => {});
+            await vc.send('v/rename ' + STARRY_NAME).catch(() => {});
         }
     }
 });
@@ -197,7 +199,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     const vc = newState.channel || oldState.channel;
     if (vc && vc.name === TARGET_CHANNEL_NAME) {
         await vc.setName(STARRY_NAME);
-        await vc.send('v/rename Starry™').catch(() => {});
+        await vc.send('v/rename ' + STARRY_NAME).catch(() => {});
     }
     if (!oldState.channelId && newState.channelId && !newState.member.user.bot) await sendWebhook(newState.member.displayName);
 });
