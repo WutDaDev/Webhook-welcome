@@ -9,7 +9,7 @@ const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 const Waiter = [
-    "Vô kìa, nhạc đang lên!",
+    "Hello Bro",
     "Lại thêm một ông nữa, vô bàn đi!",
     "Chào, uống gì gọi nhé.",
     "Bia đây, nhạc đây, quẩy thôi!",
@@ -36,10 +36,10 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    username: 'Starry Bar',
+                    username: 'Bocchi Waiter',
                     avatarURL: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif',
                     embeds: [{
-                        author: { name: 'Starry Bar | Live Session', icon_url: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif' },
+                        author: { name: 'Bocchi Waiter', icon_url: 'https://i.ibb.co/LDYLdxzc/282817-panickedno.gif' },
                         description: `**${newState.member.displayName}**\n${randomGreeting}`,
                         image: { url: 'https://images.steamusercontent.com/ugc/2462978499899794420/31183CA7507D6DFB6845952964B1262E55E58DDA/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true' },
                         color: randomColor
