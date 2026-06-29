@@ -6,6 +6,7 @@ const client = new Client({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 });
 
+// Configuration
 const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OWNER_ID = '1369831885462835252';
@@ -44,28 +45,12 @@ const squadStatuses = [
     "Clerk đang giật mình vì tiếng chuông cửa..."
 ];
 
-// Helper function to pick random items easily
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
 let thoughtIndex = 0;
 function rotateThought() { 
     const t = CashierThoughts[thoughtIndex]; 
     thoughtIndex = (thoughtIndex + 1) % CashierThoughts.length; 
     return t; 
-}
-
-// Fixed Section/Separator Component structuring
-function buildComponents() {
-    return [
-        {
-            type: 1, // Action Row
-            components: [
-                {
-                    type: 14 // Standard Separator component
-                }
-            ]
-        }
-    ];
 }
 
 function buildEmbed(memberDisplayName) {
@@ -79,10 +64,7 @@ function buildEmbed(memberDisplayName) {
 }
 
 async function sendWebhook(member) {
-    if (!WEBHOOK_URL) {
-        console.error('⚠️ WEBHOOK_URL is missing in environment variables.');
-        return;
-    }
+    if (!WEBHOOK_URL) return;
 
     try {
         const response = await fetch(`${WEBHOOK_URL}?wait=true`, {
@@ -92,50 +74,32 @@ async function sendWebhook(member) {
                 username: 'Clerk',
                 avatar_url: AVATAR_URL,
                 content: `<@${member.id}>`, 
-                embeds: [buildEmbed(member.displayName)],
-                components: buildComponents() 
+                embeds: [buildEmbed(member.displayName)]
+                // Components field removed to satisfy Discord Webhook API requirements
             })
         });
 
         if (response.ok) {
             const messageData = await response.json();
-
             setTimeout(async () => {
                 try {
                     const textChannel = client.channels.cache.get(TARGET_ID);
                     if (textChannel) {
-                        const msgToReject = await textChannel.messages.fetch(messageData.id);
-                        if (msgToReject) await msgToReject.delete();
+                        const msg = await textChannel.messages.fetch(messageData.id);
+                        if (msg) await msg.delete();
                     }
-                } catch (deleteErr) {
-                    console.error('Could not auto-delete the webhook message (Might already be deleted or missing permissions).');
-                }
+                } catch (e) { console.error('Delete failed:', e); }
             }, DELETE_DELAY_MS);
-        } else {
-            const errText = await response.text();
-            console.error(`Webhook failed with status ${response.status}:`, errText);
         }
-    } catch (err) { 
-        console.error('Network error executing webhook:', err); 
-    }
-}
-
-function checkChannelName() {
-    const channel = client.channels.cache.get(TARGET_ID);
-    if (channel && channel.name !== STARRY_NAME) {
-        channel.setName(STARRY_NAME).catch(() => {});
-    }
+    } catch (err) { console.error('Webhook error:', err); }
 }
 
 client.on('ready', () => {
-    console.log(`Clerk đã sẵn sàng làm việc dưới danh nghĩa: ${client.user.tag}... (thở dài)`);
-    setInterval(checkChannelName, 5 * 60 * 1000);
+    console.log(`Clerk đã sẵn sàng làm việc: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
-    if (message.author.id === client.user.id) return;
-    
-    if (message.content.toLowerCase() === 'ahem' && message.author.id === OWNER_ID) {
+    if (message.author.id !== client.user.id && message.content.toLowerCase() === 'ahem' && message.author.id === OWNER_ID) {
         await message.delete().catch(() => {});
         const vc = message.member?.voice?.channel;
         if (vc) await vc.setName(STARRY_NAME).catch(() => {});
@@ -144,21 +108,15 @@ client.on('messageCreate', async (message) => {
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
     const isTargetChannel = (newState.channelId === TARGET_ID);
-    const wasTargetChannel = (oldState.channelId === TARGET_ID);
-
+    const joinedChannel = (oldState.channelId !== TARGET_ID && isTargetChannel);
+    
     if (isTargetChannel && newState.channel?.name !== STARRY_NAME) {
         await newState.channel.setName(STARRY_NAME).catch(() => {});
     }
 
-    const joinedChannel = !wasTargetChannel && isTargetChannel;
     if (joinedChannel && !newState.member.user.bot) {
         await sendWebhook(newState.member);
     }
 });
 
-if (!TOKEN) {
-    console.error("❌ Error: TOKEN environment variable is missing!");
-    process.exit(1);
-}
-
-client.login(TOKEN).catch(err => console.error("Login failed:", err));
+client.login(TOKEN);
