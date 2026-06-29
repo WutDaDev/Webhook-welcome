@@ -19,14 +19,14 @@ const AVATAR_URL = 'https://i.ibb.co/9kMhVVFF/Untitled40-20260628203619.png';
 
 const EMBED_IMAGES = [
     'https://images.steamusercontent.com/ugc/2462978499899794420/31183CA7507D6DFB6845952964B1262E55E58DDA/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true',
-    'https://wallpapercave.com/wp/wp11817842.jpg',
-    'https://wallpapercave.com/wp/wp11817820.jpg',
-    'https://wallpapercave.com/wp/wp11817791.jpg'
+    'https://i.ibb.co/JRf3KggP/wp11817842.jpg',
+    'https://i.ibb.co/TMcWbZb8/wp11817820.jpg',
+    'https://i.ibb.co/BHTqmDjr/wp11817791.jpg'
 ];
 
 const ClerkLines = [
     "A-Ah... xin chào quý khách... quý khách cần gì ạ? (Thật sự muốn về nhà quá...)", 
-    "X-Xin lỗi... tớ đang dọn dẹp chút... Cậu cứ từ từ xem menu nhé...", 
+    "X-Xin lỗi... tớ đang dọn dẹp chút... Cậu cứ chill nhé...", 
     "Kh-Khách mới ạ? V-Vâng, tớ ra ngay đây... (Lại thêm việc rồi...)", 
     "Ưm... menu ở trên bàn nhé... N-Nếu cần gì thì cứ gọi tớ... (Ngáp...)", 
     "Ch-Chào cậu... (Làm ơn đừng gọi món gì phức tạp nhé... tớ mệt lắm rồi...)"
@@ -56,7 +56,7 @@ function rotateThought() {
 function buildEmbed(memberDisplayName) {
     return new MessageEmbed()
         .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
-        .setDescription(`**${memberDisplayName}** vừa đẩy cửa bước vào...\n\n_${pickRandom(ClerkLines)}_\n\n────────────────\n**💭 Suy nghĩ của Clerk:** _${rotateThought()}_\n**🎧 Trạng thái:** _${pickRandom(squadStatuses)}_`)
+        .setDescription(`**${memberDisplayName}** !!\n\n_${pickRandom(ClerkLines)}_\n\n────────────────\n** Clerk mind:** _${rotateThought()}_`)
         .setImage(pickRandom(EMBED_IMAGES))
         .setColor(0x9AA2FF) 
         .setFooter({ text: 'Made with love • Team Starry™ x WutDaDev GitHub', iconURL: AVATAR_URL })
