@@ -75,7 +75,6 @@ async function sendWebhook(member) {
                 avatar_url: AVATAR_URL,
                 content: `<@${member.id}>`, 
                 embeds: [buildEmbed(member.displayName)]
-                // Components field removed to satisfy Discord Webhook API requirements
             })
         });
 
@@ -99,21 +98,31 @@ client.on('ready', () => {
 });
 
 client.on('messageCreate', async (message) => {
+    // Only respond if the message is in the target channel
+    if (message.channel.id !== TARGET_ID) return;
+    
     if (message.author.id !== client.user.id && message.content.toLowerCase() === 'ahem' && message.author.id === OWNER_ID) {
         await message.delete().catch(() => {});
         const vc = message.member?.voice?.channel;
-        if (vc) await vc.setName(STARRY_NAME).catch(() => {});
+        if (vc && vc.id === TARGET_ID) {
+            await vc.setName(STARRY_NAME).catch(() => {});
+        }
     }
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
-    const isTargetChannel = (newState.channelId === TARGET_ID);
-    const joinedChannel = (oldState.channelId !== TARGET_ID && isTargetChannel);
+    // Only proceed if the event involves the target channel
+    const isTargetChannel = (newState.channelId === TARGET_ID || oldState.channelId === TARGET_ID);
+    if (!isTargetChannel) return;
+
+    const joinedChannel = (oldState.channelId !== TARGET_ID && newState.channelId === TARGET_ID);
     
-    if (isTargetChannel && newState.channel?.name !== STARRY_NAME) {
+    // Rename logic
+    if (newState.channelId === TARGET_ID && newState.channel?.name !== STARRY_NAME) {
         await newState.channel.setName(STARRY_NAME).catch(() => {});
     }
 
+    // Webhook logic
     if (joinedChannel && !newState.member.user.bot) {
         await sendWebhook(newState.member);
     }
