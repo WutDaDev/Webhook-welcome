@@ -9,17 +9,13 @@ const client = new Client({
 const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OWNER_ID = '1369831885462835252';
-
 const TARGET_ID = '1519372298476326922'; 
 const DELETE_DELAY_MS = 30000; 
 
 const STARRY_NAME = 'Starry™';
 const WIDEKITA_URL = 'https://widekita.com';
-
-// Hình đại diện mới của Clerk
 const AVATAR_URL = 'https://i.ibb.co/9kMhVVFF/Untitled40-20260628203619.png';
 
-// 4 Background/Thumbnail hiển thị ngẫu nhiên
 const EMBED_IMAGES = [
     'https://images.steamusercontent.com/ugc/2462978499899794420/31183CA7507D6DFB6845952964B1262E55E58DDA/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true',
     'https://wallpapercave.com/wp/wp11817842.jpg',
@@ -27,7 +23,6 @@ const EMBED_IMAGES = [
     'https://wallpapercave.com/wp/wp11817791.jpg'
 ];
 
-// Tính cách Clerk: Thu ngân ngại ngùng, nhút nhát và kiệt sức
 const ClerkLines = [
     "A-Ah... xin chào quý khách... quý khách cần gì ạ? (Thật sự muốn về nhà quá...)", 
     "X-Xin lỗi... tớ đang dọn dẹp chút... Cậu cứ từ từ xem menu nhé...", 
@@ -49,6 +44,9 @@ const squadStatuses = [
     "Clerk đang giật mình vì tiếng chuông cửa..."
 ];
 
+// Helper function to pick random items easily
+const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
 let thoughtIndex = 0;
 function rotateThought() { 
     const t = CashierThoughts[thoughtIndex]; 
@@ -56,16 +54,14 @@ function rotateThought() {
     return t; 
 }
 
-// Thay đổi sang Separator Component thực sự (Type 9) của Discord API
+// Fixed Section/Separator Component structuring
 function buildComponents() {
     return [
         {
-            type: 1, // Action Row làm gốc
+            type: 1, // Action Row
             components: [
                 {
-                    type: 9, // Type 9 chính là Separator Component mới
-                    divider: true, // Hiển thị đường kẻ phân cách
-                    spacing: 1 // 1 tương đương với "small" (0: none, 1: small, 2: large)
+                    type: 14 // Standard Separator component
                 }
             ]
         }
@@ -73,18 +69,21 @@ function buildComponents() {
 }
 
 function buildEmbed(memberDisplayName) {
-    const randomImage = EMBED_IMAGES[Math.floor(Math.random() * EMBED_IMAGES.length)];
-    
     return new MessageEmbed()
         .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
-        .setDescription(`**${memberDisplayName}** vừa đẩy cửa bước vào...\n\n_${ClerkLines[Math.floor(Math.random() * ClerkLines.length)]}_\n\n────────────────\n**💭 Suy nghĩ của Clerk:** _${rotateThought()}_\n**🎧 Trạng thái:** _${squadStatuses[Math.floor(Math.random() * squadStatuses.length)]}_`)
-        .setImage(randomImage)
+        .setDescription(`**${memberDisplayName}** vừa đẩy cửa bước vào...\n\n_${pickRandom(ClerkLines)}_\n\n────────────────\n**💭 Suy nghĩ của Clerk:** _${rotateThought()}_\n**🎧 Trạng thái:** _${pickRandom(squadStatuses)}_`)
+        .setImage(pickRandom(EMBED_IMAGES))
         .setColor(0x9AA2FF) 
         .setFooter({ text: 'Made with love • Team Starry™ x WutDaDev GitHub', iconURL: AVATAR_URL })
         .setTimestamp();
 }
 
 async function sendWebhook(member) {
+    if (!WEBHOOK_URL) {
+        console.error('⚠️ WEBHOOK_URL is missing in environment variables.');
+        return;
+    }
+
     try {
         const response = await fetch(`${WEBHOOK_URL}?wait=true`, {
             method: 'POST',
@@ -92,9 +91,9 @@ async function sendWebhook(member) {
             body: JSON.stringify({
                 username: 'Clerk',
                 avatar_url: AVATAR_URL,
-                content: `<@${member.id}>`, // Ping người dùng khi họ join phòng
+                content: `<@${member.id}>`, 
                 embeds: [buildEmbed(member.displayName)],
-                components: buildComponents() // Gửi cấu trúc Separator mới
+                components: buildComponents() 
             })
         });
 
@@ -109,12 +108,15 @@ async function sendWebhook(member) {
                         if (msgToReject) await msgToReject.delete();
                     }
                 } catch (deleteErr) {
-                    console.error('Could not delete the webhook message.');
+                    console.error('Could not auto-delete the webhook message (Might already be deleted or missing permissions).');
                 }
             }, DELETE_DELAY_MS);
+        } else {
+            const errText = await response.text();
+            console.error(`Webhook failed with status ${response.status}:`, errText);
         }
     } catch (err) { 
-        console.error('Webhook error:', err); 
+        console.error('Network error executing webhook:', err); 
     }
 }
 
@@ -126,7 +128,7 @@ function checkChannelName() {
 }
 
 client.on('ready', () => {
-    console.log('Clerk đã sẵn sàng... (thở dài)');
+    console.log(`Clerk đã sẵn sàng làm việc dưới danh nghĩa: ${client.user.tag}... (thở dài)`);
     setInterval(checkChannelName, 5 * 60 * 1000);
 });
 
@@ -149,10 +151,14 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     }
 
     const joinedChannel = !wasTargetChannel && isTargetChannel;
-    
     if (joinedChannel && !newState.member.user.bot) {
         await sendWebhook(newState.member);
     }
 });
 
-client.login(TOKEN);
+if (!TOKEN) {
+    console.error("❌ Error: TOKEN environment variable is missing!");
+    process.exit(1);
+}
+
+client.login(TOKEN).catch(err => console.error("Login failed:", err));
