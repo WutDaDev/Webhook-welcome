@@ -25,24 +25,24 @@ const EMBED_IMAGES = [
 ];
 
 const ClerkLines = [
-    "A-Ah... xin chào quý khách... quý khách cần gì ạ? (Thật sự muốn về nhà quá...)", 
-    "X-Xin lỗi... tớ đang dọn dẹp chút... Cậu cứ chill nhé...", 
-    "Kh-Khách mới ạ? V-Vâng, tớ ra ngay đây... (Lại thêm việc rồi...)", 
-    "Ưm... menu ở trên bàn nhé... N-Nếu cần gì thì cứ gọi tớ... (Ngáp...)", 
-    "Ch-Chào cậu... (Làm ơn đừng gọi món gì phức tạp nhé... tớ mệt lắm rồi...)"
+    "Chào mừng đến Starry... (lấy tay xoa thái dương)... bạn muốn gọi gì? Nhanh giúp mình nhé, mình hơi... không được khỏe.",
+    "Bảng giá ở kia. Mình... mình xin lỗi, mình không nhớ rõ món đặc biệt hôm nay là gì nữa. Lát mình hỏi quản lý cho.",
+    "Tiếng nhạc... mình biết là nó hơi to. Mình cũng đang cố chịu đựng đây. Đừng... đừng phàn nàn với mình nhé.",
+    "Đây, đồ của bạn. (đẩy ly nước ra, tay hơi run)... Làm ơn cẩn thận, mình... mình không muốn có thêm sự cố nào nữa đâu.",
+    "Nếu thấy mình biến mất sau quầy... thì là mình đang đi lấy thêm đá thôi. Đừng... đừng đi tìm mình."
 ];
 
 const CashierThoughts = [
-    "(Ước gì mình có thể tàng hình ngay lúc này...)", 
-    "(Chỉ cần không ai bắt chuyện là được... ừm...)", 
-    "(Mắt mình sắp nhíu lại rồi... n-nhưng phải cố thôi...)", 
-    "(Nếu mình trốn dưới quầy thu ngân thì sao nhỉ... không được, sẽ bị mắng mất...)"
+    "(Chỉ cần 2 tiếng nữa... mình chỉ cần đứng đây thêm 2 tiếng nữa thôi là được về.)",
+    "(Đừng nhìn mình như thế... mình biết là mình trông tệ lắm rồi, không cần phải nhắc đâu.)",
+    "(Nếu mình bỏ chạy ngay bây giờ, liệu có ai đuổi theo không? Chắc là có. Chết tiệt.)",
+    "(Tại sao hôm nay khách lại đông lạ thường thế này... mình cần không gian yên tĩnh.)"
 ];
 
 const squadStatuses = [
-    "Clerk đang lén ngáp sau quầy thu ngân...", 
-    "Clerk đang lẩm nhẩm đếm ngược từng phút đến giờ tan ca...", 
-    "Clerk đang giật mình vì tiếng chuông cửa..."
+    "Clerk đang gục đầu vào quầy, cố lấy lại bình tĩnh...",
+    "Clerk đang kiểm tra danh sách đồ uống với đôi mắt đỏ hoe vì mệt...",
+    "Clerk đang lách người vào góc tối nhất của quầy bar để thở..."
 ];
 
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
