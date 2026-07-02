@@ -10,8 +10,8 @@ const client = new Client({
 const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OWNER_ID = '1369831885462835252';
-const VOICE_CHANNEL_ID = '1521700647114903662';   // ✅ Updated correct VC ID
-const DELETE_DELAY_MS = 0; // Set to 0 for testing, then back to 30000
+const VOICE_CHANNEL_ID = '1521700647114903662';   // Your correct VC ID
+const DELETE_DELAY_MS = 30000;                    // ✅ Auto-delete after 30s
 
 const STARRY_NAME = 'Starry™';
 const WIDEKITA_URL = 'https://widekita.com';
@@ -86,7 +86,7 @@ async function renameChannel(channel) {
     }
 }
 
-// Periodic rename check (ensures channel is cached)
+// Periodic rename check
 async function periodicRenameCheck() {
     const channel = await getVoiceChannel();
     if (channel) await renameChannel(channel);
@@ -125,7 +125,8 @@ async function sendJoinWebhook(member) {
         embeds: [buildEmbed(member.displayName)]
     };
     const data = await postToWebhook(payload);
-    if (data && DELETE_DELAY_MS > 0) {
+    if (data) {
+        // Auto‑delete after 30 seconds
         setTimeout(async () => {
             try {
                 const guild = client.guilds.cache.first();
@@ -133,7 +134,7 @@ async function sendJoinWebhook(member) {
                 for (const [, ch] of guild.channels.cache.filter(c => c.type === 'GUILD_TEXT')) {
                     try {
                         const msg = await ch.messages.fetch(data.id);
-                        if (msg) { await msg.delete(); break; }
+                        if (msg) { await msg.delete(); console.log(`🗑️ Deleted webhook message`); break; }
                     } catch {}
                 }
             } catch (e) {
@@ -169,7 +170,7 @@ async function sendTestWebhook() {
                     } catch {}
                 }
             } catch {}
-        }, 10000);
+        }, 10000); // test message deletes after 10s
     }
 }
 
@@ -180,7 +181,6 @@ async function pollVoiceChannel() {
     const channel = await getVoiceChannel();
     if (!channel || channel.type !== 'GUILD_VOICE') return;
 
-    // Rename just in case
     await renameChannel(channel);
 
     const members = channel.members.filter(m => !m.user.bot);
@@ -199,20 +199,16 @@ async function pollVoiceChannel() {
 client.on('ready', async () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Fetch voice channel and rename if needed
     const channel = await getVoiceChannel();
     if (channel) {
         await renameChannel(channel);
-        // Initialize known members
         knownMembers = new Set(channel.members.filter(m => !m.user.bot).map(m => m.id));
         console.log(`👥 Initial members: ${knownMembers.size}`);
     }
 
-    // Start periodic rename checks
     setInterval(periodicRenameCheck, 30000);
     console.log('🔄 Started 30‑second rename check');
 
-    // Start fallback polling
     setInterval(pollVoiceChannel, 10000);
     console.log('🔄 Started 10‑second voice channel polling');
 });
@@ -233,11 +229,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     const joined = oldState.channelId !== VOICE_CHANNEL_ID && newState.channelId === VOICE_CHANNEL_ID;
     console.log(`🎤 Voice event: ${newState.member?.displayName} joined=${joined}`);
 
-    // Rename the channel if we are in it (use the state's channel property)
     if (oldState.channelId === VOICE_CHANNEL_ID && oldState.channel) await renameChannel(oldState.channel);
     if (newState.channelId === VOICE_CHANNEL_ID && newState.channel) await renameChannel(newState.channel);
 
-    // Send webhook via event (primary method)
     if (joined && !newState.member.user.bot) {
         await sendJoinWebhook(newState.member);
     }
