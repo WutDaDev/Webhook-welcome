@@ -9,10 +9,9 @@ const client = new Client({
 // Configuration
 const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
-const VOICE_CHANNEL_ID = '1519372298476326922'; // Voice channel ID
+const VOICE_CHANNEL_ID = '1519372298476326922';
 
-// Set to 0 to disable auto-deletion for testing
-const DELETE_DELAY_MS = 30000;
+const DELETE_DELAY_MS = 30000; // Set to 0 to disable deletion for testing
 
 const STARRY_NAME = 'Starry™';
 const WIDEKITA_URL = 'https://widekita.com';
@@ -42,6 +41,7 @@ const CashierThoughts = [
 
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 let thoughtIndex = 0;
+
 function rotateThought() { 
     const t = CashierThoughts[thoughtIndex]; 
     thoughtIndex = (thoughtIndex + 1) % CashierThoughts.length; 
@@ -58,13 +58,22 @@ function buildEmbed(memberDisplayName) {
         .setTimestamp();
 }
 
+async function renameChannel(channel) {
+    if (!channel) return;
+    if (channel.name !== STARRY_NAME) {
+        console.log(`🔄 Current name: "${channel.name}" → Renaming to "${STARRY_NAME}"...`);
+        await channel.setName(STARRY_NAME);
+        console.log(`✅ Channel renamed to "${STARRY_NAME}"`);
+    }
+}
+
 async function sendWebhook(member) {
     if (!WEBHOOK_URL) {
         console.log('❌ WEBHOOK_URL is not set!');
         return;
     }
 
-    console.log(`📤 Attempting to send webhook for ${member.displayName}...`);
+    console.log(`📤 Sending webhook for ${member.displayName}...`);
 
     try {
         const response = await fetch(`${WEBHOOK_URL}?wait=true`, {
@@ -83,14 +92,13 @@ async function sendWebhook(member) {
 
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error(`❌ Webhook failed with status ${response.status}: ${errorBody}`);
+            console.error(`❌ Webhook failed (${response.status}): ${errorBody}`);
             return;
         }
 
         const messageData = await response.json();
-        console.log(`✅ Webhook sent successfully! Message ID: ${messageData.id}`);
+        console.log(`✅ Webhook sent! Message ID: ${messageData.id}`);
 
-        // Auto-delete after delay
         if (DELETE_DELAY_MS > 0) {
             setTimeout(async () => {
                 try {
@@ -102,7 +110,7 @@ async function sendWebhook(member) {
                                 const msg = await channel.messages.fetch(messageData.id);
                                 if (msg) {
                                     await msg.delete();
-                                    console.log(`🗑️ Deleted webhook message after ${DELETE_DELAY_MS}ms`);
+                                    console.log(`🗑️ Deleted webhook message`);
                                     return;
                                 }
                             } catch {}
@@ -118,20 +126,34 @@ async function sendWebhook(member) {
     }
 }
 
-client.on('ready', () => {
-    console.log(`✅ Clerk đã sẵn sàng làm việc: ${client.user.tag}`);
-    console.log(`📋 Voice Channel ID: ${VOICE_CHANNEL_ID}`);
-    console.log(`🔗 Webhook URL set: ${WEBHOOK_URL ? 'Yes' : 'NO - THIS IS YOUR PROBLEM'}`);
-    
-    // Auto-rename on startup
-    const channel = client.channels.cache.get(VOICE_CHANNEL_ID);
-    if (channel && channel.name !== STARRY_NAME) {
-        channel.setName(STARRY_NAME).then(() => {
-            console.log(`🏷️ Auto-renamed channel to "${STARRY_NAME}" on startup`);
-        }).catch(err => {
-            console.error('❌ Failed to rename on startup:', err.message);
-        });
+// Check and rename every 30 seconds in case someone changes it
+async function checkAndFixChannelName() {
+    try {
+        const channel = client.channels.cache.get(VOICE_CHANNEL_ID);
+        if (channel && channel.name !== STARRY_NAME) {
+            console.log(`⚠️ Channel name changed to "${channel.name}" - fixing...`);
+            await channel.setName(STARRY_NAME);
+            console.log(`✅ Fixed! Renamed back to "${STARRY_NAME}"`);
+        }
+    } catch (err) {
+        console.error('❌ Channel check failed:', err.message);
     }
+}
+
+client.on('ready', () => {
+    console.log(`✅ Bot ready: ${client.user.tag}`);
+    
+    // Initial rename
+    const channel = client.channels.cache.get(VOICE_CHANNEL_ID);
+    if (channel) {
+        renameChannel(channel);
+    } else {
+        console.log('❌ Voice channel not found! Check VOICE_CHANNEL_ID');
+    }
+    
+    // Start periodic check
+    setInterval(checkAndFixChannelName, 30000);
+    console.log('🔄 Started 30-second channel name check interval');
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
@@ -140,20 +162,20 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
     const joinedChannel = (oldState.channelId !== VOICE_CHANNEL_ID && newState.channelId === VOICE_CHANNEL_ID);
     
-    console.log(`🎤 Voice update: ${newState.member?.displayName || 'Unknown'} | Joined target: ${joinedChannel}`);
+    console.log(`🎤 ${newState.member?.displayName || 'Unknown'}: ${oldState.channelId} → ${newState.channelId}`);
     
-    // Auto-rename if name is wrong
-    if (newState.channelId === VOICE_CHANNEL_ID && newState.channel?.name !== STARRY_NAME) {
-        await newState.channel.setName(STARRY_NAME).then(() => {
-            console.log(`🏷️ Auto-renamed channel to "${STARRY_NAME}"`);
-        }).catch(err => {
-            console.error('❌ Rename failed:', err.message);
-        });
+    // Fix name if someone changed it
+    if (newState.channelId === VOICE_CHANNEL_ID && newState.channel) {
+        await renameChannel(newState.channel);
+    }
+    
+    // Also check the channel they left (in case it was renamed while empty)
+    if (oldState.channelId === VOICE_CHANNEL_ID && oldState.channel) {
+        await renameChannel(oldState.channel);
     }
 
-    // Send webhook when someone joins
+    // Send webhook on join
     if (joinedChannel && !newState.member.user.bot) {
-        console.log(`🚀 Triggering webhook for ${newState.member.displayName}`);
         await sendWebhook(newState.member);
     }
 });
