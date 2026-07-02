@@ -18,7 +18,7 @@ const WIDEKITA_URL = 'https://widekita.com';
 const AVATAR_URL = 'https://i.ibb.co/9kMhVVFF/Untitled40-20260628203619.png';
 // -----------------------------
 
-// Parse webhook URL to get id/token for deletion
+// Parse webhook URL for deletion
 let webhookId = '', webhookToken = '';
 try {
     const url = new URL(WEBHOOK_URL);
@@ -100,7 +100,7 @@ async function periodicRenameCheck() {
     if (channel) await renameChannel(channel);
 }
 
-// ---------- WEBHOOK DELETE (via webhook itself) ----------
+// ---------- WEBHOOK DELETE (via webhook's own token) ----------
 async function deleteWebhookMessage(messageId) {
     if (!webhookId || !webhookToken) {
         console.log('❌ Cannot delete: webhook URL not parsed');
@@ -147,8 +147,8 @@ async function postToWebhook(payload) {
 }
 
 // ---------- DEDUPLICATED JOIN HANDLING ----------
-const knownMembers = new Set();        // who has already been welcomed
-const processing = new Set();          // currently being processed (race condition guard)
+const knownMembers = new Set();        // already welcomed
+const processing = new Set();          // currently sending webhook (race guard)
 
 async function handleNewMember(member) {
     const id = member.id;
@@ -219,23 +219,25 @@ client.on('ready', async () => {
 
 client.on('messageCreate', async (message) => {
     if (message.author.id === client.user.id) return;
+    
+    // ---------- !test command (simulates a real join using owner's ID) ----------
     if (message.content === '!test' && message.author.id === OWNER_ID) {
-        console.log(`🧪 Test command triggered by ${message.author.tag}`);
-        const testEmbed = new MessageEmbed()
-            .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
-            .setDescription('**🧪 Test successful!**\nWebhook is working correctly.')
-            .setColor(0x00FF00)
-            .setTimestamp();
-        const webhookData = await postToWebhook({
-            username: 'Clerk',
-            avatar_url: AVATAR_URL,
-            content: 'Test message.',
-            embeds: [testEmbed]
-        });
-        if (webhookData) {
-            setTimeout(() => deleteWebhookMessage(webhookData.id), 10000);
-        }
+        console.log(`🧪 Test join triggered by ${message.author.tag}`);
+        
+        // Create a mock member object so the same join logic is used
+        const testMember = {
+            id: OWNER_ID,
+            displayName: message.author.username   // or any test name
+        };
+        
+        // Bypass knownMembers for testing (so it always sends)
+        knownMembers.delete(OWNER_ID);
+        processing.delete(OWNER_ID);
+        
+        // Send the join webhook exactly like a real new member
+        await handleNewMember(testMember);
         await message.react('✅').catch(() => {});
+        return;
     }
 });
 
