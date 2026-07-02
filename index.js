@@ -6,16 +6,17 @@ const client = new Client({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 });
 
-// Configuration
+// ---------- CONFIG ----------
 const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
-const VOICE_CHANNEL_ID = '1519372298476326922';
-
-const DELETE_DELAY_MS = 30000; // Set to 0 to disable deletion for testing
+const OWNER_ID = '1369831885462835252';
+const VOICE_CHANNEL_ID = '1519372298476326922';   // Voice channel to monitor
+const DELETE_DELAY_MS = 30000;                    // 30 sec auto‑delete (set to 0 to disable)
 
 const STARRY_NAME = 'Starry™';
 const WIDEKITA_URL = 'https://widekita.com';
 const AVATAR_URL = 'https://i.ibb.co/9kMhVVFF/Untitled40-20260628203619.png';
+// -----------------------------
 
 const EMBED_IMAGES = [
     'https://images.steamusercontent.com/ugc/2462978499899794420/31183CA7507D6DFB6845952964B1262E55E58DDA/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true',
@@ -41,7 +42,6 @@ const CashierThoughts = [
 
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 let thoughtIndex = 0;
-
 function rotateThought() { 
     const t = CashierThoughts[thoughtIndex]; 
     thoughtIndex = (thoughtIndex + 1) % CashierThoughts.length; 
@@ -53,133 +53,156 @@ function buildEmbed(memberDisplayName) {
         .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
         .setDescription(`**${memberDisplayName}** !!\n\n_${pickRandom(ClerkLines)}_\n\n────────────────\n** Clerk mind:** _${rotateThought()}_`)
         .setImage(pickRandom(EMBED_IMAGES))
-        .setColor(0x9AA2FF) 
+        .setColor(0x9AA2FF)
         .setFooter({ text: 'Made with love • Team Starry™ x WutDaDev GitHub', iconURL: AVATAR_URL })
         .setTimestamp();
 }
 
+// ---------- RENAME LOGIC ----------
 async function renameChannel(channel) {
-    if (!channel) return;
-    if (channel.name !== STARRY_NAME) {
-        console.log(`🔄 Current name: "${channel.name}" → Renaming to "${STARRY_NAME}"...`);
-        await channel.setName(STARRY_NAME);
-        console.log(`✅ Channel renamed to "${STARRY_NAME}"`);
+    if (!channel || channel.name === STARRY_NAME) return;
+    console.log(`🔄 Renaming "${channel.name}" → "${STARRY_NAME}"`);
+    await channel.setName(STARRY_NAME);
+    console.log(`✅ Rename done`);
+}
+
+// Periodic check (every 30 sec) to fix name if someone changes it
+async function periodicRenameCheck() {
+    try {
+        const ch = client.channels.cache.get(VOICE_CHANNEL_ID);
+        if (ch && ch.name !== STARRY_NAME) {
+            await renameChannel(ch);
+        }
+    } catch (e) {
+        console.error('Periodic rename check error:', e.message);
     }
 }
 
-async function sendWebhook(member) {
+// ---------- WEBHOOK LOGIC ----------
+async function postToWebhook(payload) {
     if (!WEBHOOK_URL) {
-        console.log('❌ WEBHOOK_URL is not set!');
-        return;
+        console.log('❌ WEBHOOK_URL not set');
+        return null;
     }
+    console.log('📤 Sending webhook...');
+    const res = await fetch(`${WEBHOOK_URL}?wait=true`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+        },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`❌ Webhook failed (${res.status}): ${errBody}`);
+        return null;
+    }
+    const data = await res.json();
+    console.log(`✅ Webhook sent (ID: ${data.id})`);
+    return data;
+}
 
-    console.log(`📤 Sending webhook for ${member.displayName}...`);
-
-    try {
-        const response = await fetch(`${WEBHOOK_URL}?wait=true`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-            },
-            body: JSON.stringify({
-                username: 'Clerk',
-                avatar_url: AVATAR_URL,
-                content: `<@${member.id}>`, 
-                embeds: [buildEmbed(member.displayName)]
-            })
-        });
-
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error(`❌ Webhook failed (${response.status}): ${errorBody}`);
-            return;
-        }
-
-        const messageData = await response.json();
-        console.log(`✅ Webhook sent! Message ID: ${messageData.id}`);
-
-        if (DELETE_DELAY_MS > 0) {
-            setTimeout(async () => {
-                try {
-                    const guild = client.guilds.cache.first();
-                    if (guild) {
-                        const channels = guild.channels.cache.filter(c => c.type === 'GUILD_TEXT');
-                        for (const [, channel] of channels) {
-                            try {
-                                const msg = await channel.messages.fetch(messageData.id);
-                                if (msg) {
-                                    await msg.delete();
-                                    console.log(`🗑️ Deleted webhook message`);
-                                    return;
-                                }
-                            } catch {}
-                        }
-                    }
-                } catch (e) { 
-                    console.error('❌ Delete failed:', e.message); 
+async function sendJoinWebhook(member) {
+    const payload = {
+        username: 'Clerk',
+        avatar_url: AVATAR_URL,
+        content: `<@${member.id}>`,
+        embeds: [buildEmbed(member.displayName)]
+    };
+    const data = await postToWebhook(payload);
+    if (data && DELETE_DELAY_MS > 0) {
+        setTimeout(async () => {
+            try {
+                // Try to delete the webhook message from any text channel
+                const guild = client.guilds.cache.first();
+                if (!guild) return;
+                for (const [, ch] of guild.channels.cache.filter(c => c.type === 'GUILD_TEXT')) {
+                    try {
+                        const msg = await ch.messages.fetch(data.id);
+                        if (msg) { await msg.delete(); break; }
+                    } catch {}
                 }
-            }, DELETE_DELAY_MS);
-        }
-    } catch (err) { 
-        console.error('❌ Webhook error:', err); 
+            } catch (e) {
+                console.error('Delete failed:', e.message);
+            }
+        }, DELETE_DELAY_MS);
     }
 }
 
-// Check and rename every 30 seconds in case someone changes it
-async function checkAndFixChannelName() {
-    try {
-        const channel = client.channels.cache.get(VOICE_CHANNEL_ID);
-        if (channel && channel.name !== STARRY_NAME) {
-            console.log(`⚠️ Channel name changed to "${channel.name}" - fixing...`);
-            await channel.setName(STARRY_NAME);
-            console.log(`✅ Fixed! Renamed back to "${STARRY_NAME}"`);
-        }
-    } catch (err) {
-        console.error('❌ Channel check failed:', err.message);
+// ---------- TEST COMMAND (Owner only) ----------
+async function sendTestWebhook() {
+    const testEmbed = new MessageEmbed()
+        .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
+        .setDescription('**🧪 Test successful!**\nWebhook is working correctly.')
+        .setColor(0x00FF00)
+        .setTimestamp();
+    const payload = {
+        username: 'Clerk',
+        avatar_url: AVATAR_URL,
+        content: 'This is a test message.',
+        embeds: [testEmbed]
+    };
+    const data = await postToWebhook(payload);
+    if (data) {
+        // Optionally delete the test message after a few seconds
+        setTimeout(async () => {
+            try {
+                const guild = client.guilds.cache.first();
+                if (!guild) return;
+                for (const [, ch] of guild.channels.cache.filter(c => c.type === 'GUILD_TEXT')) {
+                    try {
+                        const msg = await ch.messages.fetch(data.id);
+                        if (msg) { await msg.delete(); break; }
+                    } catch {}
+                }
+            } catch {}
+        }, 10000); // 10 sec
     }
 }
 
+// ---------- EVENTS ----------
 client.on('ready', () => {
-    console.log(`✅ Bot ready: ${client.user.tag}`);
-    
+    console.log(`✅ Logged in as ${client.user.tag}`);
     // Initial rename
-    const channel = client.channels.cache.get(VOICE_CHANNEL_ID);
-    if (channel) {
-        renameChannel(channel);
+    const ch = client.channels.cache.get(VOICE_CHANNEL_ID);
+    if (ch) {
+        renameChannel(ch);
     } else {
-        console.log('❌ Voice channel not found! Check VOICE_CHANNEL_ID');
+        console.log('❌ Voice channel not found – check VOICE_CHANNEL_ID');
     }
-    
-    // Start periodic check
-    setInterval(checkAndFixChannelName, 30000);
-    console.log('🔄 Started 30-second channel name check interval');
+    // Start periodic rename checks
+    setInterval(periodicRenameCheck, 30000);
+    console.log('🔄 Started 30‑second rename check');
+});
+
+client.on('messageCreate', async (message) => {
+    // Ignore own messages
+    if (message.author.id === client.user.id) return;
+
+    // !test command – only owner can trigger
+    if (message.content === '!test' && message.author.id === OWNER_ID) {
+        console.log(`🧪 Test command triggered by ${message.author.tag}`);
+        await sendTestWebhook();
+        // Optionally react to confirm
+        await message.react('✅').catch(() => {});
+    }
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
-    const isTargetChannel = (newState.channelId === VOICE_CHANNEL_ID || oldState.channelId === VOICE_CHANNEL_ID);
-    if (!isTargetChannel) return;
+    const relevant = newState.channelId === VOICE_CHANNEL_ID || oldState.channelId === VOICE_CHANNEL_ID;
+    if (!relevant) return;
 
-    const joinedChannel = (oldState.channelId !== VOICE_CHANNEL_ID && newState.channelId === VOICE_CHANNEL_ID);
-    
-    console.log(`🎤 ${newState.member?.displayName || 'Unknown'}: ${oldState.channelId} → ${newState.channelId}`);
-    
-    // Fix name if someone changed it
-    if (newState.channelId === VOICE_CHANNEL_ID && newState.channel) {
-        await renameChannel(newState.channel);
-    }
-    
-    // Also check the channel they left (in case it was renamed while empty)
-    if (oldState.channelId === VOICE_CHANNEL_ID && oldState.channel) {
-        await renameChannel(oldState.channel);
-    }
+    const joined = oldState.channelId !== VOICE_CHANNEL_ID && newState.channelId === VOICE_CHANNEL_ID;
+
+    // Fix name if needed (both in old and new channel)
+    if (oldState.channelId === VOICE_CHANNEL_ID && oldState.channel) await renameChannel(oldState.channel);
+    if (newState.channelId === VOICE_CHANNEL_ID && newState.channel) await renameChannel(newState.channel);
 
     // Send webhook on join
-    if (joinedChannel && !newState.member.user.bot) {
-        await sendWebhook(newState.member);
+    if (joined && !newState.member.user.bot) {
+        await sendJoinWebhook(newState.member);
     }
 });
 
-client.login(TOKEN).catch(err => {
-    console.error('❌ Login failed:', err);
-});
+client.login(TOKEN).catch(e => console.error('Login failed:', e));
