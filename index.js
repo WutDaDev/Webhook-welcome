@@ -10,8 +10,8 @@ const client = new Client({
 const TOKEN = process.env.TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OWNER_ID = '1369831885462835252';
-const VOICE_CHANNEL_ID = '1519372298476326922';   // Voice channel to monitor
-const DELETE_DELAY_MS = 30000;                    // 30 sec auto‑delete (set to 0 to disable)
+const VOICE_CHANNEL_ID = '1521700647114903662';   // ✅ Updated correct VC ID
+const DELETE_DELAY_MS = 0; // Set to 0 for testing, then back to 30000
 
 const STARRY_NAME = 'Starry™';
 const WIDEKITA_URL = 'https://widekita.com';
@@ -42,10 +42,10 @@ const CashierThoughts = [
 
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 let thoughtIndex = 0;
-function rotateThought() { 
-    const t = CashierThoughts[thoughtIndex]; 
-    thoughtIndex = (thoughtIndex + 1) % CashierThoughts.length; 
-    return t; 
+function rotateThought() {
+    const t = CashierThoughts[thoughtIndex];
+    thoughtIndex = (thoughtIndex + 1) % CashierThoughts.length;
+    return t;
 }
 
 function buildEmbed(memberDisplayName) {
@@ -58,24 +58,38 @@ function buildEmbed(memberDisplayName) {
         .setTimestamp();
 }
 
+// ---------- UTILITY: Get voice channel (with fetch fallback) ----------
+async function getVoiceChannel() {
+    let channel = client.channels.cache.get(VOICE_CHANNEL_ID);
+    if (!channel) {
+        try {
+            console.log(`🔍 Channel not in cache, fetching...`);
+            channel = await client.channels.fetch(VOICE_CHANNEL_ID);
+            console.log(`✅ Fetched channel: ${channel.name}`);
+        } catch (e) {
+            console.error(`❌ Failed to fetch voice channel: ${e.message}`);
+            return null;
+        }
+    }
+    return channel;
+}
+
 // ---------- RENAME LOGIC ----------
 async function renameChannel(channel) {
     if (!channel || channel.name === STARRY_NAME) return;
-    console.log(`🔄 Renaming "${channel.name}" → "${STARRY_NAME}"`);
-    await channel.setName(STARRY_NAME);
-    console.log(`✅ Rename done`);
+    try {
+        console.log(`🔄 Renaming "${channel.name}" → "${STARRY_NAME}"`);
+        await channel.setName(STARRY_NAME);
+        console.log(`✅ Rename done`);
+    } catch (e) {
+        console.error('Rename error:', e.message);
+    }
 }
 
-// Periodic check (every 30 sec) to fix name if someone changes it
+// Periodic rename check (ensures channel is cached)
 async function periodicRenameCheck() {
-    try {
-        const ch = client.channels.cache.get(VOICE_CHANNEL_ID);
-        if (ch && ch.name !== STARRY_NAME) {
-            await renameChannel(ch);
-        }
-    } catch (e) {
-        console.error('Periodic rename check error:', e.message);
-    }
+    const channel = await getVoiceChannel();
+    if (channel) await renameChannel(channel);
 }
 
 // ---------- WEBHOOK LOGIC ----------
@@ -114,7 +128,6 @@ async function sendJoinWebhook(member) {
     if (data && DELETE_DELAY_MS > 0) {
         setTimeout(async () => {
             try {
-                // Try to delete the webhook message from any text channel
                 const guild = client.guilds.cache.first();
                 if (!guild) return;
                 for (const [, ch] of guild.channels.cache.filter(c => c.type === 'GUILD_TEXT')) {
@@ -130,7 +143,7 @@ async function sendJoinWebhook(member) {
     }
 }
 
-// ---------- TEST COMMAND (Owner only) ----------
+// ---------- TEST COMMAND ----------
 async function sendTestWebhook() {
     const testEmbed = new MessageEmbed()
         .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
@@ -145,7 +158,6 @@ async function sendTestWebhook() {
     };
     const data = await postToWebhook(payload);
     if (data) {
-        // Optionally delete the test message after a few seconds
         setTimeout(async () => {
             try {
                 const guild = client.guilds.cache.first();
@@ -157,34 +169,59 @@ async function sendTestWebhook() {
                     } catch {}
                 }
             } catch {}
-        }, 10000); // 10 sec
+        }, 10000);
     }
 }
 
-// ---------- EVENTS ----------
-client.on('ready', () => {
-    console.log(`✅ Logged in as ${client.user.tag}`);
-    // Initial rename
-    const ch = client.channels.cache.get(VOICE_CHANNEL_ID);
-    if (ch) {
-        renameChannel(ch);
-    } else {
-        console.log('❌ Voice channel not found – check VOICE_CHANNEL_ID');
+// ---------- FALLBACK: Periodic voice channel polling ----------
+let knownMembers = new Set();
+
+async function pollVoiceChannel() {
+    const channel = await getVoiceChannel();
+    if (!channel || channel.type !== 'GUILD_VOICE') return;
+
+    // Rename just in case
+    await renameChannel(channel);
+
+    const members = channel.members.filter(m => !m.user.bot);
+    const currentIds = new Set(members.map(m => m.id));
+
+    for (const [id, member] of members) {
+        if (!knownMembers.has(id)) {
+            console.log(`🔔 Poll detected new member: ${member.displayName}`);
+            await sendJoinWebhook(member);
+        }
     }
+    knownMembers = currentIds;
+}
+
+// ---------- EVENTS ----------
+client.on('ready', async () => {
+    console.log(`✅ Logged in as ${client.user.tag}`);
+
+    // Fetch voice channel and rename if needed
+    const channel = await getVoiceChannel();
+    if (channel) {
+        await renameChannel(channel);
+        // Initialize known members
+        knownMembers = new Set(channel.members.filter(m => !m.user.bot).map(m => m.id));
+        console.log(`👥 Initial members: ${knownMembers.size}`);
+    }
+
     // Start periodic rename checks
     setInterval(periodicRenameCheck, 30000);
     console.log('🔄 Started 30‑second rename check');
+
+    // Start fallback polling
+    setInterval(pollVoiceChannel, 10000);
+    console.log('🔄 Started 10‑second voice channel polling');
 });
 
 client.on('messageCreate', async (message) => {
-    // Ignore own messages
     if (message.author.id === client.user.id) return;
-
-    // !test command – only owner can trigger
     if (message.content === '!test' && message.author.id === OWNER_ID) {
         console.log(`🧪 Test command triggered by ${message.author.tag}`);
         await sendTestWebhook();
-        // Optionally react to confirm
         await message.react('✅').catch(() => {});
     }
 });
@@ -194,12 +231,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (!relevant) return;
 
     const joined = oldState.channelId !== VOICE_CHANNEL_ID && newState.channelId === VOICE_CHANNEL_ID;
+    console.log(`🎤 Voice event: ${newState.member?.displayName} joined=${joined}`);
 
-    // Fix name if needed (both in old and new channel)
+    // Rename the channel if we are in it (use the state's channel property)
     if (oldState.channelId === VOICE_CHANNEL_ID && oldState.channel) await renameChannel(oldState.channel);
     if (newState.channelId === VOICE_CHANNEL_ID && newState.channel) await renameChannel(newState.channel);
 
-    // Send webhook on join
+    // Send webhook via event (primary method)
     if (joined && !newState.member.user.bot) {
         await sendJoinWebhook(newState.member);
     }
