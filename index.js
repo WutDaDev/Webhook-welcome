@@ -18,6 +18,15 @@ const WIDEKITA_URL = 'https://widekita.com';
 const AVATAR_URL = 'https://i.ibb.co/9kMhVVFF/Untitled40-20260628203619.png';
 // -----------------------------
 
+// Parse webhook URL to get id/token for deletion
+let webhookId = '', webhookToken = '';
+try {
+    const url = new URL(WEBHOOK_URL);
+    const parts = url.pathname.split('/');
+    webhookId = parts[parts.length - 2];
+    webhookToken = parts[parts.length - 1];
+} catch {}
+
 const EMBED_IMAGES = [
     'https://images.steamusercontent.com/ugc/2462978499899794420/31183CA7507D6DFB6845952964B1262E55E58DDA/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true',
     'https://i.ibb.co/JRf3KggP/wp11817842.jpg',
@@ -91,7 +100,28 @@ async function periodicRenameCheck() {
     if (channel) await renameChannel(channel);
 }
 
-// ---------- WEBHOOK + DELETE ----------
+// ---------- WEBHOOK DELETE (via webhook itself) ----------
+async function deleteWebhookMessage(messageId) {
+    if (!webhookId || !webhookToken) {
+        console.log('❌ Cannot delete: webhook URL not parsed');
+        return;
+    }
+    try {
+        const res = await fetch(
+            `https://discord.com/api/webhooks/${webhookId}/${webhookToken}/messages/${messageId}`,
+            { method: 'DELETE' }
+        );
+        if (res.ok) {
+            console.log(`🗑️ Deleted webhook message (ID: ${messageId})`);
+        } else {
+            console.error(`❌ Delete failed (${res.status}): ${await res.text()}`);
+        }
+    } catch (e) {
+        console.error('Delete error:', e.message);
+    }
+}
+
+// ---------- WEBHOOK SEND ----------
 async function postToWebhook(payload) {
     if (!WEBHOOK_URL) {
         console.log('❌ WEBHOOK_URL not set');
@@ -113,74 +143,45 @@ async function postToWebhook(payload) {
     }
     const data = await res.json();
     console.log(`✅ Webhook sent (ID: ${data.id})`);
-    return data; // { id, channel_id }
+    return data;
 }
 
-async function deleteWebhookMessage(webhookData) {
-    if (!webhookData || !webhookData.id || !webhookData.channel_id) return;
-    try {
-        const channel = await client.channels.fetch(webhookData.channel_id);
-        if (!channel || channel.type !== 'GUILD_TEXT') return;
-        const message = await channel.messages.fetch(webhookData.id);
-        if (message) {
-            await message.delete();
-            console.log(`🗑️ Deleted webhook message (ID: ${webhookData.id})`);
-        }
-    } catch (e) {
-        console.error('Delete failed:', e.message);
-    }
-}
+// ---------- DEDUPLICATED JOIN HANDLING ----------
+const knownMembers = new Set();        // who has already been welcomed
+const processing = new Set();          // currently being processed (race condition guard)
 
-async function sendJoinWebhook(member) {
-    const payload = {
-        username: 'Clerk',
-        avatar_url: AVATAR_URL,
-        content: `<@${member.id}>`,
-        embeds: [buildEmbed(member.displayName)]
-    };
-    const webhookData = await postToWebhook(payload);
-    if (webhookData) {
-        setTimeout(() => deleteWebhookMessage(webhookData), DELETE_DELAY_MS);
-    }
-}
-
-// ---------- TEST ----------
-async function sendTestWebhook() {
-    const testEmbed = new MessageEmbed()
-        .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
-        .setDescription('**🧪 Test successful!**\nWebhook is working correctly.')
-        .setColor(0x00FF00)
-        .setTimestamp();
-    const payload = {
-        username: 'Clerk',
-        avatar_url: AVATAR_URL,
-        content: 'This is a test message.',
-        embeds: [testEmbed]
-    };
-    const webhookData = await postToWebhook(payload);
-    if (webhookData) {
-        setTimeout(() => deleteWebhookMessage(webhookData), 10000);
-    }
-}
-
-// ---------- DEDUPLICATED JOIN TRACKING ----------
-let knownMembers = new Set();
-
-// This function is called when a member is confirmed new (by event or polling)
 async function handleNewMember(member) {
-    // Already processed
-    if (knownMembers.has(member.id)) return;
-    // Add to known set immediately to prevent race conditions
-    knownMembers.add(member.id);
-    console.log(`🔔 New member: ${member.displayName}`);
-    await sendJoinWebhook(member);
-}
+    const id = member.id;
 
-// Update knownMembers from the current voice channel state
-async function syncKnownMembers(channel) {
-    if (!channel) return;
-    const memberIds = channel.members.filter(m => !m.user.bot).map(m => m.id);
-    knownMembers = new Set(memberIds);
+    // Already welcomed → skip
+    if (knownMembers.has(id)) return;
+
+    // If another process is already handling this member, skip
+    if (processing.has(id)) return;
+    processing.add(id);
+
+    try {
+        // Double-check inside the lock
+        if (knownMembers.has(id)) return;
+
+        console.log(`🔔 New member: ${member.displayName}`);
+        const webhookData = await postToWebhook({
+            username: 'Clerk',
+            avatar_url: AVATAR_URL,
+            content: `<@${id}>`,
+            embeds: [buildEmbed(member.displayName)]
+        });
+
+        if (webhookData) {
+            // Schedule deletion
+            setTimeout(() => deleteWebhookMessage(webhookData.id), DELETE_DELAY_MS);
+        }
+
+        // Mark as done
+        knownMembers.add(id);
+    } finally {
+        processing.delete(id);
+    }
 }
 
 // ---------- POLLING ----------
@@ -190,9 +191,9 @@ async function pollVoiceChannel() {
     await renameChannel(channel);
 
     const members = channel.members.filter(m => !m.user.bot);
-    for (const [id, member] of members) {
-        if (!knownMembers.has(id)) {
-            await handleNewMember(member);  // will add to knownMembers
+    for (const [, member] of members) {
+        if (!knownMembers.has(member.id)) {
+            await handleNewMember(member);
         }
     }
 }
@@ -204,8 +205,8 @@ client.on('ready', async () => {
     const channel = await getVoiceChannel();
     if (channel) {
         await renameChannel(channel);
-        // Initialize known members from current state
-        await syncKnownMembers(channel);
+        // Pre-load existing members so they don't trigger on first poll
+        channel.members.filter(m => !m.user.bot).forEach(m => knownMembers.add(m.id));
         console.log(`👥 Initial members: ${knownMembers.size}`);
     }
 
@@ -220,7 +221,20 @@ client.on('messageCreate', async (message) => {
     if (message.author.id === client.user.id) return;
     if (message.content === '!test' && message.author.id === OWNER_ID) {
         console.log(`🧪 Test command triggered by ${message.author.tag}`);
-        await sendTestWebhook();
+        const testEmbed = new MessageEmbed()
+            .setAuthor({ name: 'Clerk', icon_url: AVATAR_URL, url: WIDEKITA_URL })
+            .setDescription('**🧪 Test successful!**\nWebhook is working correctly.')
+            .setColor(0x00FF00)
+            .setTimestamp();
+        const webhookData = await postToWebhook({
+            username: 'Clerk',
+            avatar_url: AVATAR_URL,
+            content: 'Test message.',
+            embeds: [testEmbed]
+        });
+        if (webhookData) {
+            setTimeout(() => deleteWebhookMessage(webhookData.id), 10000);
+        }
         await message.react('✅').catch(() => {});
     }
 });
@@ -235,7 +249,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (oldState.channelId === VOICE_CHANNEL_ID && oldState.channel) await renameChannel(oldState.channel);
     if (newState.channelId === VOICE_CHANNEL_ID && newState.channel) await renameChannel(newState.channel);
 
-    // Deduplicated join handling
     if (joined && !newState.member.user.bot) {
         await handleNewMember(newState.member);
     }
