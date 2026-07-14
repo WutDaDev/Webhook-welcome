@@ -10,7 +10,7 @@ const client = new Client({
 const TOKEN            = process.env.TOKEN;
 const WEBHOOK_URL      = process.env.WEBHOOK_URL;
 const OWNER_ID         = '1369831885462835252';
-const VOICE_CHANNEL_ID = '1521700647114903662';
+const VOICE_CHANNEL_ID = process.env.VOICE_CHANNEL_ID;
 const DELETE_DELAY_MS  = 18000;
 
 const STARRY_NAME  = 'Starry™';
